@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片上傳</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+                #color-display {
+            width: 100px;
+            height: 100px;
+            border: 1px solid #000;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+    <div>
+    <h2>輸入條碼數據</h2>
+    <input type="text" id="barcode-data" placeholder="輸入條碼數據">
+    <button onclick="generateBarcode()">生成一維條碼</button>
+</div>
+<svg id="barcode-container"></svg>
+
+    <h1>上傳圖片以獲取主要顏色</h1>
+    <input type="file" id="image-upload" accept="image/*">
+    <button onclick="uploadImage()">上傳圖片</button>
+    <div id="color-display"></div>
+    <img id="uploaded-image" alt="上傳的圖片" style="display: none;">
+        <script>
+
+            let dominantColor = null;
+
+        async function uploadImage() {
+            const input = document.getElementById('image-upload');
+            const file = input.files[0];
+
+            if (!file) {
+                alert('請選擇一個圖片文件');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = async function() {
+                const base64Data = reader.result;
+                const formData = new FormData();
+                formData.append('image', base64Data.split(',')[1]);
+
+                try {
+                    const response = await fetch('/api/dominant-color', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        dominantColor = result.dominant_color;
+                        displayColor(dominantColor);
+                        displayImage(base64Data);
+                    } else {
+                        const errorMessage = result.error;
+                        alert(`出錯了：${errorMessage}`);
+                    }
+                } catch (error) {
+                    alert(`網路錯誤：${error}`);
+                }
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        function displayColor(rgbArray) {
+            const rgbString = `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`;
+            const colorDisplay = document.getElementById('color-display');
+            console.log(rgbString)
+            colorDisplay.style.backgroundColor = rgbString;
+        }
+
+        function displayImage(base64Data) {
+            const uploadedImage = document.getElementById('uploaded-image');
+            uploadedImage.src = base64Data;
+            uploadedImage.style.display = 'block';
+        }
+
+    // generateBarcode
+    function generateBarcode() {
+        const dataInput = document.getElementById('barcode-data');
+        const barcodeContainer = document.getElementById('barcode-container');
+
+        if (!dataInput.value) {
+            alert('請輸入條碼數據');
+            return;
+        }
+              if (!dominantColor) {
+                alert('請先上傳一張圖片以獲取顏色');
+                return;
+            }
+
+            const barcodeColor = `rgb(${dominantColor[0]}, ${dominantColor[1]}, ${dominantColor[2]})`;
+
+            try {
+                JsBarcode(barcodeContainer, dataInput.value, {
+                    format: "CODE128",
+                    lineColor: barcodeColor,
+                    width: 2,
+                    height: 50,
+                    displayValue: true,
+                    fontSize: 14
+                });
+            } catch (error) {
+                alert('無法生成條碼，請檢查輸入數據');
+            }
+    }
+    </script>
+</body>
+</html>
